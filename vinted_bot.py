@@ -112,6 +112,25 @@ def main():
         time.sleep(check_interval)
 
 if __name__ == "__main__":
+    # SERVEUR WEB FANTOME POUR L'HEBERGEMENT GRATUIT RENDER (Web Service)
+    import threading
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    
+    class DummyHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Bot Vinted est 100% En Ligne !")
+            
+    def run_dummy_server():
+        port = int(os.environ.get("PORT", 10000))
+        print(f"🌐 Faux serveur web démarré sur le port {port} pour tromper Render...")
+        server = HTTPServer(("0.0.0.0", port), DummyHandler)
+        server.serve_forever()
+        
+    # Lancement du faux serveur en arrière-plan
+    threading.Thread(target=run_dummy_server, daemon=True).start()
+
     try:
         main()
     except KeyboardInterrupt:
