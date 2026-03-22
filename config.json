@@ -1,0 +1,20 @@
+{
+  "check_interval_minutes": 5,
+  "notifications": {
+    "discord_webhook_url": "https://discord.com/api/webhooks/1485338165601505363/m2op3BrdvuvvPoCAQI8pjj-JWYzv2tr11yyEMaqS64T6sYepwlZsyfWopxt_Q5qsGuo7",
+    "telegram_bot_token": "",
+    "telegram_chat_id": ""
+  },
+  "searches": [
+    {
+      "name": "running homme",
+      "url": "https://www.vinted.fr/catalog?search_text=running%20homme%20&size_ids[]=208&page=1&time=1774203235&brand_ids[]=53&brand_ids[]=52035&brand_ids[]=1195&status_ids[]=6",
+      "max_price": 40.0
+    },
+    {
+      "name": "saccoche gucci",
+      "url": "https://www.vinted.fr/catalog?search_text=saccooche%20gucci&price_to=50&search_by_image_uuid=&search_by_image_id=&page=1&time=1774183066",
+      "max_price": 25.00
+    }
+  ]
+}

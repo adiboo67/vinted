@@ -1,0 +1,4 @@
+articles_vus.db
+__pycache__/
+*.pyc
+.env
