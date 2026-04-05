@@ -2,9 +2,11 @@ import json
 import time
 import sqlite3
 import os
+import threading
 from datetime import datetime
 from vinted_scraper import VintedScraper
 from notifier import Notifier
+from discord_commander import run_discord_bot
 
 # Fichiers
 CONFIG_FILE = "config.json"
@@ -62,6 +64,13 @@ def main():
         print(f"\n==============================================")
         print(f"[{datetime.now().strftime('%H:%M:%S')}] Lancement d'un cycle de détection...")
         
+        # Recharger la config à chaque cycle pour prendre en compte les nouveaux filtres sans redémarrer
+        config = load_config()
+        if not config:
+            time.sleep(60)
+            continue
+
+        
         for search in config.get("searches", []):
             name = search.get("name", "Recherche")
             url = search.get("url")
@@ -112,24 +121,30 @@ def main():
         time.sleep(check_interval)
 
 if __name__ == "__main__":
-    # SERVEUR WEB FANTOME POUR L'HEBERGEMENT GRATUIT RENDER (Web Service)
-    import threading
     from http.server import HTTPServer, BaseHTTPRequestHandler
-    
+
+    # ── Faux serveur HTTP (compatibilité AlwaysData / Render) ──
     class DummyHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Bot Vinted est 100% En Ligne !")
-            
+
+        def log_message(self, format, *args):
+            pass  # Silence les logs HTTP
+
     def run_dummy_server():
         port = int(os.environ.get("PORT", 10000))
-        print(f"🌐 Faux serveur web démarré sur le port {port} pour tromper Render...")
+        print(f"🌐 Faux serveur web démarré sur le port {port}...")
         server = HTTPServer(("0.0.0.0", port), DummyHandler)
         server.serve_forever()
-        
-    # Lancement du faux serveur en arrière-plan
+
+    # ── Lancement du faux serveur HTTP ──
     threading.Thread(target=run_dummy_server, daemon=True).start()
+
+    # ── Lancement du bot Discord de commandes ──
+    threading.Thread(target=run_discord_bot, daemon=True).start()
+    print("🎮 Bot Discord de commandes démarré (thread séparé).")
 
     try:
         main()

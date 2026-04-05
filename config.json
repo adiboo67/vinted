@@ -1,5 +1,9 @@
 {
   "check_interval_minutes": 5,
+  "discord_bot_token": "",
+  "discord_admin_user_ids": [],
+  "discord_admin_channel_id": null,
+  "auto_message": "Bonjour 👋 l'article est toujours disponible. N'hésitez pas à me contacter.",
   "notifications": {
     "discord_webhook_url": "https://discord.com/api/webhooks/1485338165601505363/m2op3BrdvuvvPoCAQI8pjj-JWYzv2tr11yyEMaqS64T6sYepwlZsyfWopxt_Q5qsGuo7",
     "telegram_bot_token": "",
@@ -8,13 +12,23 @@
   "searches": [
     {
       "name": "running homme",
-      "url": "https://www.vinted.fr/catalog?search_text=running%20homme%20&size_ids[]=208&page=1&time=1774203235&brand_ids[]=53&brand_ids[]=52035&brand_ids[]=1195&status_ids[]=6",
-      "max_price": 40.0
+      "url": "https://www.vinted.fr/catalog?search_text=nike%20running&catalog[]=1811&page=1&time=1775398647&brand_ids[]=53&brand_ids[]=1195&brand_ids[]=52035&status_ids[]=6&price_to=35&currency=EUR",
+      "max_price": 35.0
     },
     {
-      "name": "saccoche gucci",
-      "url": "https://www.vinted.fr/catalog?search_text=saccoche%20gucci%20banane%20&page=1&time=1774207342&search_by_image_uuid=&search_by_image_id=",
-      "max_price": 30.00
+      "name": "chaussure pour femme",
+      "url": "https://www.vinted.fr/catalog?search_text=chaussure%20pour%20femme&brand_ids[]=53&brand_ids[]=11445&brand_ids[]=139&brand_ids[]=1195&brand_ids[]=5977&brand_ids[]=2239&page=1&time=1775398882&status_ids[]=1&status_ids[]=2&price_to=60&currency=EUR",
+      "max_price": 60.0
+    },
+    {
+      "name": "pull femme",
+      "url": "https://www.vinted.fr/catalog?search_text=pulls%20femmes&page=1&time=1775398145&search_by_image_uuid=&search_by_image_id=&brand_ids[]=12&brand_ids[]=88&brand_ids[]=15&status_ids[]=6&status_ids[]=1&price_to=25&currency=EUR&catalog[]=13",
+      "max_price": 25.0
+    },
+    {
+      "name": "accessoire",
+      "url": "https://www.vinted.fr/catalog?search_text=accesoir%20pour%20femme%20&search_by_image_uuid=&search_by_image_id=&page=1&time=1775403772&brand_ids[]=12&brand_ids[]=465&brand_ids[]=15&brand_ids[]=11967&brand_ids[]=38437&brand_ids[]=94&brand_ids[]=6235&status_ids[]=6&status_ids[]=1&price_to=30&currency=EUR",
+      "max_price": 40.0
     }
   ]
 }
