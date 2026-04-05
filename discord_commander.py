@@ -104,17 +104,30 @@ def run_discord_bot():
     Point d'entrée principal.
     Appelé dans un thread daemon depuis vinted_bot.py.
 
-    Le token est lu depuis la variable d'environnement DISCORD_BOT_TOKEN en priorité,
-    puis depuis config.json en fallback (développement local uniquement).
+    Le token est cherché dans cet ordre :
+    1. Variable d'environnement DISCORD_BOT_TOKEN (AlwaysData / Render)
+    2. Fichier bot_token.txt sur le serveur (méthode simple AlwaysData)
+    3. Champ discord_bot_token dans config.json (développement local)
     """
-    # Priorité : variable d'environnement (AlwaysData) > config.json (local)
-    token = os.environ.get("DISCORD_BOT_TOKEN", "")
+    # 1. Variable d'environnement
+    token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+
+    # 2. Fichier bot_token.txt (ignoré par Git)
+    if not token:
+        token_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_token.txt")
+        if os.path.exists(token_file):
+            with open(token_file, "r", encoding="utf-8") as f:
+                token = f.read().strip()
+            if token:
+                print("[Discord Bot] 🔑 Token chargé depuis bot_token.txt")
+
+    # 3. config.json (fallback local)
     if not token:
         config = load_config()
-        token = config.get("discord_bot_token", "")
+        token = config.get("discord_bot_token", "").strip()
 
     if not token or len(token) < 20:
-        print("[Discord Bot] ⚠️  Aucun token trouvé (env DISCORD_BOT_TOKEN ou config.json). Bot de commande désactivé.")
+        print("[Discord Bot] ⚠️  Aucun token trouvé. Crée un fichier bot_token.txt avec ton token. Bot de commande désactivé.")
         return
 
     intents = discord.Intents.default()
@@ -161,8 +174,11 @@ def run_discord_bot():
             name="📋 Affichage",
             value=(
                 "`!showconfig` — Configuration complète\n"
+                "*(ex: `!showconfig`)*\n\n"
                 "`!listurl` — Liste toutes les recherches\n"
-                "`!showmessage` — Message auto + historique"
+                "*(ex: `!listurl`)*\n\n"
+                "`!showmessage` — Message auto + historique\n"
+                "*(ex: `!showmessage`)*"
             ),
             inline=False
         )
@@ -170,9 +186,13 @@ def run_discord_bot():
             name="🔍 Recherches",
             value=(
                 "`!addurl <nom> <prix_max> <url>` — Ajouter\n"
+                "*(ex: `!addurl \"sac a main\" 80 https://...`)*\n\n"
                 "`!seturl <nom> <url>` — Modifier l'URL\n"
+                "*(ex: `!seturl \"pull femme\" https://...`)*\n\n"
                 "`!setprice <nom> <prix>` — Modifier le prix max\n"
-                "`!delurl <nom>` — Supprimer"
+                "*(ex: `!setprice \"running homme\" 45`)*\n\n"
+                "`!delurl <nom>` — Supprimer\n"
+                "*(ex: `!delurl \"running homme\"`)*"
             ),
             inline=False
         )
@@ -180,16 +200,21 @@ def run_discord_bot():
             name="⚙️ Paramètres globaux",
             value=(
                 "`!setinterval <minutes>` — Fréquence de scan\n"
+                "*(ex: `!setinterval 2`)*\n\n"
                 "`!setwebhook <url>` — Webhook Discord d'alerte\n"
-                "`!setmessage <texte>` — Message automatique favoris"
+                "*(ex: `!setwebhook https://discord.com...`)*\n\n"
+                "`!setmessage <texte>` — Message automatique\n"
+                "*(ex: `!setmessage Bonjour 👋...`)*"
             ),
             inline=False
         )
         embed.add_field(
             name="📨 Suivi des messages",
             value=(
-                "`!marksent <buyer_id>` — Marquer un acheteur contacté\n"
-                "`!resetmessages` — Réinitialiser l'historique"
+                "`!marksent <buyer_id>` — Marquer comme contacté\n"
+                "*(ex: `!marksent buyer123`)*\n\n"
+                "`!resetmessages` — Réinitialiser l'historique\n"
+                "*(ex: `!resetmessages`)*"
             ),
             inline=False
         )
