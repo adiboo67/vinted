@@ -11,6 +11,8 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             discord_id TEXT PRIMARY KEY,
+            profile_id TEXT UNIQUE,
+            profile_name TEXT,
             webhook_url TEXT,
             search_url TEXT,
             max_price REAL,
@@ -30,7 +32,24 @@ def init_db():
         )
     ''')
     conn.commit()
+
+    # ── Migration automatique pour les bases existantes ──
+    # Ajouter les nouvelles colonnes si elles n'existent pas encore
+    _safe_add_column(cursor, "users", "profile_id", "TEXT")
+    _safe_add_column(cursor, "users", "profile_name", "TEXT")
+    conn.commit()
+
     return conn
+
+
+def _safe_add_column(cursor, table, column, col_type):
+    """Ajoute une colonne à une table si elle n'existe pas déjà."""
+    cursor.execute(f"PRAGMA table_info({table})")
+    existing_columns = [row[1] for row in cursor.fetchall()]
+    if column not in existing_columns:
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+        print(f"[DB Migration] ✅ Colonne '{column}' ajoutée à la table '{table}'.")
+
 
 # ----- GETTERS -----
 def get_all_users(conn):
@@ -51,10 +70,22 @@ def get_user(conn, discord_id):
         return dict(zip(columns, row))
     return None
 
-# ----- SETTERS -----
-def create_profile(conn, discord_id):
+def is_profile_id_used(conn, profile_id):
+    """Vérifie si un profile_id est déjà utilisé par un autre utilisateur."""
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO users (discord_id, max_price, scan_interval, last_scan) VALUES (?, 0, 60, 0)", (str(discord_id),))
+    cursor.execute("SELECT 1 FROM users WHERE profile_id = ?", (str(profile_id),))
+    return cursor.fetchone() is not None
+
+# ----- SETTERS -----
+def create_profile(conn, discord_id, profile_id, profile_name, search_url, max_price, auto_message, webhook_url, scan_interval):
+    """Crée un profil complet pour un nouvel utilisateur."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """INSERT OR IGNORE INTO users 
+           (discord_id, profile_id, profile_name, search_url, max_price, auto_message, webhook_url, scan_interval, last_scan)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+        (str(discord_id), profile_id, profile_name, search_url, max_price, auto_message, webhook_url, scan_interval)
+    )
     conn.commit()
 
 def update_user_field(conn, discord_id, field, value):

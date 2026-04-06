@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import os
+import asyncio
 from datetime import datetime
 import database as db
 
@@ -58,7 +59,7 @@ def run_discord_bot():
             description="Gère ton propre profil et tes alertes Vinted independamment des autres utilisateurs !",
             color=0x5865F2
         )
-        embed.add_field(name="🆕 Démarrer", value="`!createprofile` — Crée ton profil utilisateur", inline=False)
+        embed.add_field(name="🆕 Démarrer", value="`!createprofile` — Crée ton profil utilisateur (assistant interactif)", inline=False)
         embed.add_field(
             name="⚙️ Configuration",
             value=(
@@ -75,14 +76,144 @@ def run_discord_bot():
         await ctx.send(embed=embed)
 
     @bot.command(name="createprofile")
-    async def create_profile(ctx):
+    async def create_profile_wizard(ctx):
         user_id = str(ctx.author.id)
+        
+        # Vérifier si l'utilisateur a déjà un profil
         user = db.get_user(conn, user_id)
         if user:
-            await ctx.send("✅ Tu as déjà un profil ! Utilise `!myconfig` pour le voir.")
-        else:
-            db.create_profile(conn, user_id)
-            await ctx.send("🎉 **Profil créé avec succès !**\nUtilise `!seturl` et `!setwebhook` pour configurer ton bot.")
+            await ctx.send("✅ Tu as déjà un profil ! Utilise `!myconfig` pour le voir ou les commandes `!set...` pour le modifier. Le bot ne va pas te redemander tes informations une autre fois.")
+            return
+
+        # S'assurer qu'on peut lui envoyer un message privé
+        try:
+            if ctx.guild: # Si on est dans un serveur
+                await ctx.author.send("👋 Bienvenue ! Je vais t'aider à créer ton profil VintedBot étape par étape.")
+                await ctx.send(f"✅ {ctx.author.mention}, je t'ai envoyé un message privé pour configurer ton profil !")
+        except discord.Forbidden:
+            await ctx.send("❌ Je ne peux pas t'envoyer de message privé. Vérifie tes paramètres de confidentialité sur ce serveur d'abord !")
+            return
+
+        dm_channel = ctx.author.dm_channel
+        if not dm_channel:
+            dm_channel = await ctx.author.create_dm()
+
+        def check(m):
+            return m.author.id == ctx.author.id and m.channel.id == dm_channel.id
+
+        async def ask(question, error_msg=None, validator=None):
+            while True:
+                await dm_channel.send(question)
+                try:
+                    msg = await bot.wait_for('message', check=check, timeout=300.0) # 5 minutes de timeout
+                except asyncio.TimeoutError:
+                    await dm_channel.send("⏱️ Temps écoulé. La création du profil a été annulée. Tape `!createprofile` pour recommencer.")
+                    return None
+                
+                if msg.content.strip().lower() == "!cancel":
+                    await dm_channel.send("❌ Création de profil annulée.")
+                    return None
+                
+                response = msg.content.strip()
+                if validator:
+                    is_valid, validation_msg = validator(response)
+                    if not is_valid:
+                        await dm_channel.send(f"⚠️ {validation_msg}")
+                        continue
+                return response
+
+        # --- Début de l'assistant ---
+        await dm_channel.send("*(Tu peux taper `!cancel` à tout moment pour annuler la configuration)*")
+
+        # 1. ID Unique
+        def validate_id(val):
+            if db.is_profile_id_used(conn, val):
+                return False, "Cet ID unique est déjà pris par quelqu'un d'autre. Choisis-en un autre :"
+            if len(val) < 3:
+                return False, "L'ID doit faire au moins 3 caractères."
+            if " " in val:
+                return False, "L'ID ne doit pas contenir d'espaces."
+            return True, ""
+            
+        profile_id = await ask("1️⃣ L'ID unique permet de t'identifier (pas d'espaces).\n**Veuillez entrer un ID unique pour ton profil :**", validator=validate_id)
+        if profile_id is None: return
+
+        # 2. Nom de profil
+        profile_name = await ask("2️⃣ **Entrez le nom de votre profil (ex: 'Mes alertes Sneakers') :**")
+        if profile_name is None: return
+
+        # 3. URL Vinted
+        def validate_url(val):
+            if not val.startswith("http"):
+                return False, "L'URL doit commencer par `http` ou `https`."
+            if "vinted" not in val.lower():
+                return False, "L'URL doit provenir du site Vinted."
+            return True, ""
+            
+        search_url = await ask("3️⃣ **Entrez l'URL de recherche Vinted à surveiller (avec tes filtres) :**", validator=validate_url)
+        if search_url is None: return
+
+        # 4. Prix maximum
+        def validate_price(val):
+            try:
+                p = float(val)
+                if p < 0:
+                    return False, "Le prix ne peut pas être négatif."
+                return True, ""
+            except ValueError:
+                return False, "Veuillez entrer un nombre valide (ex: `50` ou `25.5`)."
+                
+        max_price_str = await ask("4️⃣ **Entrez le prix maximum pour les alertes (utilise '.' pour les décimales, 0 si pas de limite) :**", validator=validate_price)
+        if max_price_str is None: return
+        max_price = float(max_price_str)
+
+        # 5. Message automatique
+        auto_message = await ask("5️⃣ **Entrez le message automatique à envoyer aux vendeurs (quand tu cliques sur contacter) :**")
+        if auto_message is None: return
+
+        # 6. Webhook Discord
+        def validate_webhook(val):
+            if not val.startswith("https://discord.com/api/webhooks/"):
+                return False, "L'URL doit commencer par `https://discord.com/api/webhooks/`"
+            return True, ""
+            
+        webhook_url = await ask("6️⃣ **Entrez l'URL du webhook Discord pour recevoir les alertes :**", validator=validate_webhook)
+        if webhook_url is None: return
+
+        # 7. Intervalle de scan
+        def validate_interval(val):
+            try:
+                i = int(val)
+                if i < 60:
+                    return False, "L'intervalle doit être d'au moins `60` secondes pour éviter le ban Vinted."
+                return True, ""
+            except ValueError:
+                return False, "Veuillez entrer un nombre entier valide."
+                
+        scan_interval_str = await ask("7️⃣ **Entrez l'intervalle de scan en secondes (Minimum 60) :**", validator=validate_interval)
+        if scan_interval_str is None: return
+        scan_interval = int(scan_interval_str)
+
+        # Sauvegarde
+        db.create_profile(conn, user_id, profile_id, profile_name, search_url, max_price, auto_message, webhook_url, scan_interval)
+        
+        # Confirmation finale
+        embed = discord.Embed(
+            title="🎉 Votre profil a été créé avec succès !",
+            description="Le bot est maintenant configuré et commencera à scanner cette URL.\nTu peux toujours modifier ces infos plus tard avec les commandes du bot.",
+            color=0x57F287
+        )
+        embed.add_field(name="ID Unique", value=f"`{profile_id}`", inline=True)
+        embed.add_field(name="Nom", value=f"**{profile_name}**", inline=True)
+        embed.add_field(name="Prix Max", value=f"**{max_price}€**" if max_price > 0 else "Illimité", inline=True)
+        embed.add_field(name="Intervalle", value=f"{scan_interval} sec", inline=True)
+        
+        url_text = search_url[:80] + "..." if len(search_url) > 80 else search_url
+        embed.add_field(name="Recherche Vinted", value=f"[Lien de recherche]({search_url})\n`{url_text}`", inline=False)
+        embed.add_field(name="Message Vendeur", value=f"```\n{auto_message}\n```", inline=False)
+        
+        await dm_channel.send(embed=embed)
+
 
     @bot.command(name="myconfig")
     async def my_config(ctx):
@@ -93,6 +224,7 @@ def run_discord_bot():
             return
 
         embed = discord.Embed(title="⚙️ Ta Configuration VintedBot", color=0x57F287, timestamp=datetime.now())
+        embed.add_field(name="ID Profil / Nom", value=f"`{user.get('profile_id', 'N/A')}` / **{user.get('profile_name', 'N/A')}**", inline=False)
         embed.add_field(name="Webhook Discord", value="✅ Configuré" if user["webhook_url"] else "❌ Aucun", inline=True)
         embed.add_field(name="Intervalle de scan", value=f"⏱️ {user['scan_interval']} secondes", inline=True)
         embed.add_field(name="Prix maximum", value=f"💰 {user['max_price']}€" if user["max_price"] else "♾️ Illimité", inline=True)
